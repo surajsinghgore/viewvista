@@ -2,13 +2,20 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const { PeerServer } = require('peer');
+const cors = require('cors'); // Import cors
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// Configure CORS to allow requests from http://localhost:3000
+app.use(cors({
+  origin: 'http://localhost:3000', // Allow React app's origin
+  methods: ['GET', 'POST'],
+}));
+
 // Set up PeerJS server
-const peerServer = PeerServer({ port: 9000, path: '/peerjs' });
+const peerServer = PeerServer({ port: 9001, path: '/peerjs' });
 
 // Serve static files
 app.use(express.static('public'));
@@ -46,6 +53,6 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3000, () => {
-  console.log('Server is running on port 3000');
+server.listen(3001, () => {
+  console.log('Server is running on port 3001');
 });

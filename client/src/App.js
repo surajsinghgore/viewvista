@@ -1,18 +1,20 @@
+// src/App.jsx
+
 import React from 'react';
-import Broadcaster from './components/Broadcaster';
-import Viewer from './components/Viewer';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Broadcast from './Broadcast';
+import Viewer from './Viewer';
 
-function App() {
-  const [isBroadcaster, setIsBroadcaster] = React.useState(false);
-
+const App = () => {
   return (
-    <div>
-      <button onClick={() => setIsBroadcaster(!isBroadcaster)}>
-        {isBroadcaster ? 'Stop Broadcasting' : 'Start Broadcasting'}
-      </button>
-      {isBroadcaster ? <Broadcaster /> : <Viewer />}
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/broadcast" element={<Broadcast />} />
+        <Route path="/view" element={<Viewer />} />
+        <Route path="/" element={<h1>Welcome! Navigate to /broadcast or /view</h1>} />
+      </Routes>
+    </Router>
   );
-}
+};
 
 export default App;
