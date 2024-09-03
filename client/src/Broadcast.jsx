@@ -9,21 +9,25 @@ const Broadcast = () => {
   const [viewerCount, setViewerCount] = useState(0);
   const [roomId, setRoomId] = useState('');
   const [streamerName, setStreamerName] = useState('');
+  const [duration, setDuration] = useState(0); // State for duration
+  const [remainingTime, setRemainingTime] = useState(0); // State for countdown
   const [isInitialized, setIsInitialized] = useState(false);
   const [stream, setStream] = useState(null); // State for media stream
   const [isPaused, setIsPaused] = useState(false); // State for stream status
   const localVideoRef = useRef(null);
   const peer = useRef(null);
+  const socketRef = useRef(null); // Ref for socket instance
+  const timerRef = useRef(null); // Ref for countdown timer
 
   const sendMessage = () => {
-    if (message) {
+    if (message && socket) {
       socket.emit('chat-message', { message, userName: streamerName });
       setMessage('');
     }
   };
 
   const endStream = () => {
-    if (roomId) {
+    if (roomId && socket) {
       socket.emit('end-stream', roomId);
     }
     stopMediaStream(); // Stop the media stream
@@ -37,6 +41,9 @@ const Broadcast = () => {
       }
       setStream(null); // Clear stream state
       setIsPaused(false); // Reset pause state
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current); // Clear the countdown timer
     }
   };
 
@@ -62,12 +69,14 @@ const Broadcast = () => {
   useEffect(() => {
     if (!isInitialized) return;
 
-    const socketInstance = io('http://localhost:3001', {
+    socketRef.current = io('http://localhost:3001', {
       transports: ['websocket'],
       cors: {
         origin: 'http://localhost:3000',
       },
     });
+
+    const socketInstance = socketRef.current;
 
     socketInstance.on('connect', () => {
       console.log('Socket connected');
@@ -117,12 +126,27 @@ const Broadcast = () => {
         alert('The stream has ended.');
         stopMediaStream(); // Stop the media stream when the stream ends
       });
+
+      // Countdown timer
+      if (duration > 0) {
+        const endTime = Date.now() + duration * 60000; // Duration in milliseconds
+        timerRef.current = setInterval(() => {
+          const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+          setRemainingTime(timeLeft);
+
+          if (timeLeft === 0) {
+            endStream(); // End the stream when countdown reaches 0
+          }
+        }, 1000);
+      }
     }).catch(err => {
       console.error("Error accessing media devices:", err);
     });
 
     peer.current.on('open', id => {
-      socketInstance.emit('join-room', roomId, id, streamerName);
+      if (socketInstance) {
+        socketInstance.emit('join-room', roomId, id, streamerName);
+      }
     });
 
     const connectToNewUser = (userId, userStream) => {
@@ -141,15 +165,21 @@ const Broadcast = () => {
       }
       stopMediaStream(); // Ensure stream is stopped on cleanup
     };
-  }, [isInitialized, roomId, streamerName]);
+  }, [isInitialized, roomId, streamerName, duration]);
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    if (roomId && streamerName) {
+    if (roomId && streamerName && duration > 0) {
       setIsInitialized(true);
     } else {
-      alert("Please enter both Room ID and Streamer Name");
+      alert("Please enter Room ID, Streamer Name, and Duration");
     }
+  };
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   return (
@@ -179,12 +209,25 @@ const Broadcast = () => {
               />
             </label>
           </div>
+          <div>
+            <label>
+              Duration (minutes):
+              <input
+                type="number"
+                min="1"
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                required
+              />
+            </label>
+          </div>
           <button type="submit">Start Broadcast</button>
         </form>
       ) : (
         <>
           <h1>WebRTC Broadcaster</h1>
           <h2>Room ID: {roomId}</h2>
+          <h2>Time Remaining: {formatTime(remainingTime)}</h2> {/* Display countdown */}
           <video ref={localVideoRef} autoPlay muted></video>
           <div>
             <h2>Chat</h2>

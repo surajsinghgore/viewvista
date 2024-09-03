@@ -1,56 +1,57 @@
-// Viewer Component
-
-import React, { useEffect, useRef, useState } from 'react';
-import Peer from 'peerjs';
-import io from 'socket.io-client';
+import React, { useEffect, useRef, useState } from "react";
+import Peer from "peerjs";
+import io from "socket.io-client";
 
 const Viewer = () => {
   const [socket, setSocket] = useState(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
   const [viewerCount, setViewerCount] = useState(0);
-  const [roomId, setRoomId] = useState('');
-  const [viewerName, setViewerName] = useState('');
+  const [roomId, setRoomId] = useState("");
+  const [viewerName, setViewerName] = useState("");
+  const [remainingTime, setRemainingTime] = useState(null); // State for remaining time
   const [isInitialized, setIsInitialized] = useState(false);
   const remoteVideoRef = useRef(null);
   const playButtonRef = useRef(null);
   const peer = useRef(null);
-
   useEffect(() => {
     if (!isInitialized) return;
 
-    const socketInstance = io('http://localhost:3001', {
-      transports: ['websocket'],
+    const socketInstance = io("http://localhost:3001", {
+      transports: ["websocket"],
       cors: {
-        origin: 'http://localhost:3000',
+        origin: "http://localhost:3000",
       },
     });
 
-    socketInstance.on('connect', () => {
-      console.log('Socket connected');
+    socketInstance.on("connect", () => {
+      console.log("Socket connected");
     });
 
     setSocket(socketInstance);
 
     peer.current = new Peer(undefined, {
-      path: '/peerjs',
-      host: '/',
-      port: '9001',
+      path: "/peerjs",
+      host: "/",
+      port: "9001",
     });
 
-    peer.current.on('call', call => {
-      call.answer(); // Answer the call without sending media
-      call.on('stream', userVideoStream => {
+    peer.current.on("call", (call) => {
+      call.answer();
+      call.on("stream", (userVideoStream) => {
         console.log("Received stream from broadcaster:", userVideoStream);
 
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = userVideoStream;
 
-          playButtonRef.current.addEventListener('click', () => {
-            remoteVideoRef.current.play().then(() => {
-              console.log("Video started playing");
-              playButtonRef.current.style.display = 'none';
-            }).catch(err => console.error("Error: ", err));
+          playButtonRef.current.addEventListener("click", () => {
+            remoteVideoRef.current
+              .play()
+              .then(() => {
+                console.log("Video started playing");
+                playButtonRef.current.style.display = "none";
+              })
+              .catch((err) => console.error("Error: ", err));
           });
 
           remoteVideoRef.current.onloadedmetadata = () => {
@@ -64,20 +65,26 @@ const Viewer = () => {
       });
     });
 
-    socketInstance.on('chat-message', ({ message, userName }) => {
-      setChatMessages(prevMessages => [...prevMessages, { message, userName }]);
+    socketInstance.on("chat-message", ({ message, userName }) => {
+      setChatMessages((prevMessages) => [...prevMessages, { message, userName }]);
     });
 
-    socketInstance.on('viewer-count', count => {
+    socketInstance.on("viewer-count", (count) => {
       setViewerCount(count);
     });
 
-    socketInstance.on('stream-ended', () => {
-      alert('The stream has ended.');
+    socketInstance.on("remaining-time", (time) => {
+      console.log("Remaining time received:", time);
+      setRemainingTime(time);
     });
 
-    peer.current.on('open', id => {
-      socketInstance.emit('join-room', roomId, id, viewerName);
+    socketInstance.on("stream-ended", () => {
+      alert("The stream has ended.");
+      setRemainingTime(null);
+    });
+
+    peer.current.on("open", (id) => {
+      socketInstance.emit("join-room", roomId, id, viewerName);
     });
 
     return () => {
@@ -101,9 +108,16 @@ const Viewer = () => {
 
   const sendMessage = () => {
     if (message) {
-      socket.emit('chat-message', { message, userName: viewerName });
-      setMessage('');
+      socket.emit("chat-message", { message, userName: viewerName });
+      setMessage("");
     }
+  };
+
+  const formatTime = (seconds) => {
+    if (seconds === null) return "N/A";
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   return (
@@ -114,23 +128,13 @@ const Viewer = () => {
           <div>
             <label>
               Room ID:
-              <input
-                type="text"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                required
-              />
+              <input type="text" value={roomId} onChange={(e) => setRoomId(e.target.value)} required />
             </label>
           </div>
           <div>
             <label>
               Viewer Name:
-              <input
-                type="text"
-                value={viewerName}
-                onChange={(e) => setViewerName(e.target.value)}
-                required
-              />
+              <input type="text" value={viewerName} onChange={(e) => setViewerName(e.target.value)} required />
             </label>
           </div>
           <button type="submit">Join Stream</button>
@@ -139,21 +143,19 @@ const Viewer = () => {
         <>
           <h1>WebRTC Viewer</h1>
           <h2>Room ID: {roomId}</h2>
+          <h2>Time Remaining: {formatTime(remainingTime)}</h2> {/* Display remaining time */}
           <video ref={remoteVideoRef} autoPlay playsInline></video>
           <button ref={playButtonRef}>Play Video</button>
           <div>
             <h2>Chat</h2>
             <div>
               {chatMessages.map((msg, index) => (
-                <p key={index}><strong>{msg.userName}:</strong> {msg.message}</p>
+                <p key={index}>
+                  <strong>{msg.userName}:</strong> {msg.message}
+                </p>
               ))}
             </div>
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message"
-            />
+            <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message" />
             <button onClick={sendMessage}>Send</button>
           </div>
           <h2>Viewer Count: {viewerCount}</h2>
