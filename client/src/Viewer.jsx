@@ -1,3 +1,5 @@
+// Viewer Component
+
 import React, { useEffect, useRef, useState } from 'react';
 import Peer from 'peerjs';
 import io from 'socket.io-client';
@@ -15,7 +17,7 @@ const Viewer = () => {
   const peer = useRef(null);
 
   useEffect(() => {
-    if (!isInitialized) return; // Ensure initialization only happens after form submission
+    if (!isInitialized) return;
 
     const socketInstance = io('http://localhost:3001', {
       transports: ['websocket'],
@@ -70,6 +72,10 @@ const Viewer = () => {
       setViewerCount(count);
     });
 
+    socketInstance.on('stream-ended', () => {
+      alert('The stream has ended.');
+    });
+
     peer.current.on('open', id => {
       socketInstance.emit('join-room', roomId, id, viewerName);
     });
@@ -82,7 +88,7 @@ const Viewer = () => {
         peer.current.destroy();
       }
     };
-  }, [isInitialized, roomId, viewerName]); // Dependency array includes isInitialized, roomId, and viewerName
+  }, [isInitialized, roomId, viewerName]);
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
@@ -132,7 +138,7 @@ const Viewer = () => {
       ) : (
         <>
           <h1>WebRTC Viewer</h1>
-          <h2>Room ID: {roomId}</h2> {/* Display Room ID */}
+          <h2>Room ID: {roomId}</h2>
           <video ref={remoteVideoRef} autoPlay playsInline></video>
           <button ref={playButtonRef}>Play Video</button>
           <div>
@@ -150,7 +156,7 @@ const Viewer = () => {
             />
             <button onClick={sendMessage}>Send</button>
           </div>
-          <h2>Viewer Count: {viewerCount}</h2> {/* Display viewer count */}
+          <h2>Viewer Count: {viewerCount}</h2>
         </>
       )}
     </div>

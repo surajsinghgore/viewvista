@@ -10,10 +10,11 @@ const Broadcast = () => {
   const [roomId, setRoomId] = useState('');
   const [streamerName, setStreamerName] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [stream, setStream] = useState(null); // State for media stream
+  const [isPaused, setIsPaused] = useState(false); // State for stream status
   const localVideoRef = useRef(null);
   const peer = useRef(null);
 
-  // Define sendMessage function outside of useEffect
   const sendMessage = () => {
     if (message) {
       socket.emit('chat-message', { message, userName: streamerName });
@@ -21,8 +22,45 @@ const Broadcast = () => {
     }
   };
 
+  const endStream = () => {
+    if (roomId) {
+      socket.emit('end-stream', roomId);
+    }
+    stopMediaStream(); // Stop the media stream
+  };
+
+  const stopMediaStream = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop()); // Stop all tracks
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null; // Clear the video source
+      }
+      setStream(null); // Clear stream state
+      setIsPaused(false); // Reset pause state
+    }
+  };
+
+  const togglePausePlay = () => {
+    if (stream) {
+      const isPausedNow = !isPaused;
+      setIsPaused(isPausedNow);
+      
+      // Pause or resume the media stream
+      stream.getTracks().forEach(track => {
+        if (track.readyState === 'live') {
+          track.enabled = !isPausedNow;
+        }
+      });
+
+      // Update the video element
+      if (localVideoRef.current) {
+        localVideoRef.current.play();
+      }
+    }
+  };
+
   useEffect(() => {
-    if (!isInitialized) return; // Ensure initialization only happens after form submission
+    if (!isInitialized) return;
 
     const socketInstance = io('http://localhost:3001', {
       transports: ['websocket'],
@@ -46,20 +84,25 @@ const Broadcast = () => {
     navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
-    }).then(stream => {
+    }).then(userStream => {
+      setStream(userStream); // Save the media stream
+
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.srcObject = userStream; // Assign the stream to the video element
+        localVideoRef.current.onloadedmetadata = () => {
+          localVideoRef.current.play(); // Ensure video is playing once metadata is loaded
+        };
       }
 
       peer.current.on('call', call => {
-        call.answer(stream);
+        call.answer(userStream);
         call.on('stream', userVideoStream => {
           console.log("Received stream from user");
         });
       });
 
       socketInstance.on('user-connected', ({ userId, userName }) => {
-        connectToNewUser(userId, stream);
+        connectToNewUser(userId, userStream);
       });
 
       socketInstance.on('chat-message', ({ message, userName }) => {
@@ -69,14 +112,21 @@ const Broadcast = () => {
       socketInstance.on('viewer-count', count => {
         setViewerCount(count);
       });
-    }).catch(err => console.error("Error: ", err));
+
+      socketInstance.on('stream-ended', () => {
+        alert('The stream has ended.');
+        stopMediaStream(); // Stop the media stream when the stream ends
+      });
+    }).catch(err => {
+      console.error("Error accessing media devices:", err);
+    });
 
     peer.current.on('open', id => {
       socketInstance.emit('join-room', roomId, id, streamerName);
     });
 
-    const connectToNewUser = (userId, stream) => {
-      const call = peer.current.call(userId, stream);
+    const connectToNewUser = (userId, userStream) => {
+      const call = peer.current.call(userId, userStream);
       call.on('stream', userVideoStream => {
         console.log("Connected to user", userId);
       });
@@ -89,8 +139,9 @@ const Broadcast = () => {
       if (peer.current) {
         peer.current.destroy();
       }
+      stopMediaStream(); // Ensure stream is stopped on cleanup
     };
-  }, [isInitialized, roomId, streamerName]); // Dependency array now includes isInitialized, roomId, and streamerName
+  }, [isInitialized, roomId, streamerName]);
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
@@ -133,7 +184,7 @@ const Broadcast = () => {
       ) : (
         <>
           <h1>WebRTC Broadcaster</h1>
-          <h2>Room ID: {roomId}</h2> {/* Display Room ID */}
+          <h2>Room ID: {roomId}</h2>
           <video ref={localVideoRef} autoPlay muted></video>
           <div>
             <h2>Chat</h2>
@@ -151,6 +202,10 @@ const Broadcast = () => {
             <button onClick={sendMessage}>Send</button>
           </div>
           <h2>Viewer Count: {viewerCount}</h2>
+          <button onClick={endStream}>End Stream</button>
+          <button onClick={togglePausePlay}>
+            {isPaused ? 'Resume Stream' : 'Pause Stream'}
+          </button>
         </>
       )}
     </div>
