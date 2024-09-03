@@ -16,7 +16,7 @@ const Broadcast = () => {
   // Define sendMessage function outside of useEffect
   const sendMessage = () => {
     if (message) {
-      socket.emit('chat-message', message);
+      socket.emit('chat-message', { message, userName: streamerName });
       setMessage('');
     }
   };
@@ -58,12 +58,12 @@ const Broadcast = () => {
         });
       });
 
-      socketInstance.on('user-connected', userId => {
+      socketInstance.on('user-connected', ({ userId, userName }) => {
         connectToNewUser(userId, stream);
       });
 
-      socketInstance.on('chat-message', message => {
-        setChatMessages(prevMessages => [...prevMessages, message]);
+      socketInstance.on('chat-message', ({ message, userName }) => {
+        setChatMessages(prevMessages => [...prevMessages, { message, userName }]);
       });
 
       socketInstance.on('viewer-count', count => {
@@ -139,7 +139,7 @@ const Broadcast = () => {
             <h2>Chat</h2>
             <div>
               {chatMessages.map((msg, index) => (
-                <p key={index}>{msg}</p>
+                <p key={index}><strong>{msg.userName}:</strong> {msg.message}</p>
               ))}
             </div>
             <input

@@ -6,7 +6,7 @@ const Viewer = () => {
   const [socket, setSocket] = useState(null);
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
-  const [viewerCount, setViewerCount] = useState(0); // Add state for viewer count
+  const [viewerCount, setViewerCount] = useState(0);
   const [roomId, setRoomId] = useState('');
   const [viewerName, setViewerName] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
@@ -62,8 +62,8 @@ const Viewer = () => {
       });
     });
 
-    socketInstance.on('chat-message', message => {
-      setChatMessages(prevMessages => [...prevMessages, message]);
+    socketInstance.on('chat-message', ({ message, userName }) => {
+      setChatMessages(prevMessages => [...prevMessages, { message, userName }]);
     });
 
     socketInstance.on('viewer-count', count => {
@@ -95,7 +95,7 @@ const Viewer = () => {
 
   const sendMessage = () => {
     if (message) {
-      socket.emit('chat-message', message);
+      socket.emit('chat-message', { message, userName: viewerName });
       setMessage('');
     }
   };
@@ -139,7 +139,7 @@ const Viewer = () => {
             <h2>Chat</h2>
             <div>
               {chatMessages.map((msg, index) => (
-                <p key={index}>{msg}</p>
+                <p key={index}><strong>{msg.userName}:</strong> {msg.message}</p>
               ))}
             </div>
             <input
