@@ -1,5 +1,3 @@
-// src/components/Broadcast.jsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import Peer from 'peerjs';
 import io from 'socket.io-client';
@@ -9,6 +7,9 @@ const Broadcast = () => {
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [viewerCount, setViewerCount] = useState(0);
+  const [roomId, setRoomId] = useState('');
+  const [streamerName, setStreamerName] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
   const localVideoRef = useRef(null);
   const peer = useRef(null);
 
@@ -21,6 +22,8 @@ const Broadcast = () => {
   };
 
   useEffect(() => {
+    if (!isInitialized) return; // Ensure initialization only happens after form submission
+
     const socketInstance = io('http://localhost:3001', {
       transports: ['websocket'],
       cors: {
@@ -69,8 +72,7 @@ const Broadcast = () => {
     }).catch(err => console.error("Error: ", err));
 
     peer.current.on('open', id => {
-      const roomId = prompt('Enter Room ID');
-      socketInstance.emit('join-room', roomId, id);
+      socketInstance.emit('join-room', roomId, id, streamerName);
     });
 
     const connectToNewUser = (userId, stream) => {
@@ -88,28 +90,69 @@ const Broadcast = () => {
         peer.current.destroy();
       }
     };
-  }, []); // Empty dependency array to run only once
+  }, [isInitialized, roomId, streamerName]); // Dependency array now includes isInitialized, roomId, and streamerName
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (roomId && streamerName) {
+      setIsInitialized(true);
+    } else {
+      alert("Please enter both Room ID and Streamer Name");
+    }
+  };
 
   return (
     <div>
-      <h1>WebRTC Broadcaster</h1>
-      <video ref={localVideoRef} autoPlay muted></video>
-      <div>
-        <h2>Chat</h2>
-        <div>
-          {chatMessages.map((msg, index) => (
-            <p key={index}>{msg}</p>
-          ))}
-        </div>
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type a message"
-        />
-        <button onClick={sendMessage}>Send</button>
-      </div>
-      <h2>Viewer Count: {viewerCount}</h2>
+      {!isInitialized ? (
+        <form onSubmit={handleFormSubmit}>
+          <h1>Set Up Your Broadcast</h1>
+          <div>
+            <label>
+              Room ID:
+              <input
+                type="text"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+          <div>
+            <label>
+              Streamer Name:
+              <input
+                type="text"
+                value={streamerName}
+                onChange={(e) => setStreamerName(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+          <button type="submit">Start Broadcast</button>
+        </form>
+      ) : (
+        <>
+          <h1>WebRTC Broadcaster</h1>
+          <h2>Room ID: {roomId}</h2> {/* Display Room ID */}
+          <video ref={localVideoRef} autoPlay muted></video>
+          <div>
+            <h2>Chat</h2>
+            <div>
+              {chatMessages.map((msg, index) => (
+                <p key={index}>{msg}</p>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message"
+            />
+            <button onClick={sendMessage}>Send</button>
+          </div>
+          <h2>Viewer Count: {viewerCount}</h2>
+        </>
+      )}
     </div>
   );
 };
