@@ -6,8 +6,19 @@ import io from 'socket.io-client';
 
 const Broadcast = () => {
   const [socket, setSocket] = useState(null);
+  const [message, setMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [viewerCount, setViewerCount] = useState(0);
   const localVideoRef = useRef(null);
   const peer = useRef(null);
+
+  // Define sendMessage function outside of useEffect
+  const sendMessage = () => {
+    if (message) {
+      socket.emit('chat-message', message);
+      setMessage('');
+    }
+  };
 
   useEffect(() => {
     const socketInstance = io('http://localhost:3001', {
@@ -47,6 +58,14 @@ const Broadcast = () => {
       socketInstance.on('user-connected', userId => {
         connectToNewUser(userId, stream);
       });
+
+      socketInstance.on('chat-message', message => {
+        setChatMessages(prevMessages => [...prevMessages, message]);
+      });
+
+      socketInstance.on('viewer-count', count => {
+        setViewerCount(count);
+      });
     }).catch(err => console.error("Error: ", err));
 
     peer.current.on('open', id => {
@@ -69,12 +88,28 @@ const Broadcast = () => {
         peer.current.destroy();
       }
     };
-  }, []);
+  }, []); // Empty dependency array to run only once
 
   return (
     <div>
       <h1>WebRTC Broadcaster</h1>
       <video ref={localVideoRef} autoPlay muted></video>
+      <div>
+        <h2>Chat</h2>
+        <div>
+          {chatMessages.map((msg, index) => (
+            <p key={index}>{msg}</p>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type a message"
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
+      <h2>Viewer Count: {viewerCount}</h2>
     </div>
   );
 };

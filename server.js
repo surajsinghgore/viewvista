@@ -33,19 +33,33 @@ app.get('/view', (req, res) => {
 io.on('connection', (socket) => {
   console.log('A user connected');
 
+  let currentRoom = null;
+
   // When a user joins a room
   socket.on('join-room', (roomId, userId) => {
     if (roomId && userId) {
+      currentRoom = roomId;
       socket.join(roomId); // Join the specified room
       console.log(`User ${userId} joined room ${roomId}`);
 
       // Notify other users in the room that a new user has connected
       socket.to(roomId).emit('user-connected', userId);
 
+      // Increment the viewer count
+      io.to(roomId).emit('viewer-count', io.sockets.adapter.rooms.get(roomId)?.size || 0);
+
+      // Handle chat messages
+      socket.on('chat-message', (message) => {
+        socket.to(roomId).emit('chat-message', message);
+      });
+
       // Handle disconnection of users
       socket.on('disconnect', () => {
         console.log(`User ${userId} disconnected`);
         socket.to(roomId).emit('user-disconnected', userId);
+
+        // Decrement the viewer count
+        io.to(roomId).emit('viewer-count', io.sockets.adapter.rooms.get(roomId)?.size || 0);
       });
     } else {
       console.error("Room ID or User ID is missing");

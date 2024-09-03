@@ -6,6 +6,9 @@ import io from 'socket.io-client';
 
 const Viewer = () => {
   const [socket, setSocket] = useState(null);
+  const [message, setMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [viewerCount, setViewerCount] = useState(0); // Add state for viewer count
   const remoteVideoRef = useRef(null);
   const playButtonRef = useRef(null);
   const peer = useRef(null);
@@ -56,8 +59,12 @@ const Viewer = () => {
       });
     });
 
-    socketInstance.on('user-connected', userId => {
-      console.log(`User connected: ${userId}`);
+    socketInstance.on('chat-message', message => {
+      setChatMessages(prevMessages => [...prevMessages, message]);
+    });
+
+    socketInstance.on('viewer-count', count => {
+      setViewerCount(count);
     });
 
     peer.current.on('open', id => {
@@ -73,13 +80,36 @@ const Viewer = () => {
         peer.current.destroy();
       }
     };
-  }, []);
+  }, []); // Empty dependency array to ensure effect runs only once
+
+  const sendMessage = () => {
+    if (message) {
+      socket.emit('chat-message', message);
+      setMessage('');
+    }
+  };
 
   return (
     <div>
       <h1>WebRTC Viewer</h1>
       <video ref={remoteVideoRef} autoPlay playsInline></video>
       <button ref={playButtonRef}>Play Video</button>
+      <div>
+        <h2>Chat</h2>
+        <div>
+          {chatMessages.map((msg, index) => (
+            <p key={index}>{msg}</p>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type a message"
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
+      <h2>Viewer Count: {viewerCount}</h2> {/* Display viewer count */}
     </div>
   );
 };
