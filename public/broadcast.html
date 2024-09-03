@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Broadcaster</title>
+</head>
+<body>
+  <h1>WebRTC Broadcaster</h1>
+  <video id="localVideo" autoplay muted></video>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+  <script>
+    const socket = io('/');
+    const peer = new Peer(undefined, {
+      path: '/peerjs',
+      host: '/',
+      port: '9000'
+    });
+
+    const roomId = prompt("Enter Room ID");
+    const localVideo = document.getElementById('localVideo');
+
+    // Function to handle errors
+    function handleError(err) {
+      console.error("Error: ", err);
+    }
+
+    // Get user media
+    navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    }).then(stream => {
+      localVideo.srcObject = stream;
+
+      peer.on('call', call => {
+        call.answer(stream); // Answer with our stream
+        call.on('stream', userVideoStream => {
+          console.log("Received stream from user"); // Debugging log
+        });
+      });
+
+      socket.on('user-connected', userId => {
+        connectToNewUser(userId, stream);
+      });
+    }).catch(handleError);
+
+    peer.on('open', id => {
+      socket.emit('join-room', roomId, id);
+    });
+
+    function connectToNewUser(userId, stream) {
+      const call = peer.call(userId, stream);
+      call.on('stream', userVideoStream => {
+        console.log("Connected to user", userId); // Debugging log
+      });
+    }
+  </script>
+</body>
+</html>
