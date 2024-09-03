@@ -2,7 +2,16 @@ const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
 const { PeerServer } = require("peer");
-const cors = require("cors"); // Import cors
+const cors = require("cors");
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+
+// Cloudinary configuration
+cloudinary.config({
+  cloud_name: 'dnxv21hr0',
+  api_key: '792554459657294',
+  api_secret: 'uoJrUw66jZIJ9cpfBaUfkTdAJK4',
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -11,7 +20,7 @@ const io = socketIo(server);
 // Configure CORS to allow requests from http://localhost:3000
 app.use(
   cors({
-    origin: "http://localhost:3000", // Allow React app's origin
+    origin: "http://localhost:3000",
     methods: ["GET", "POST"],
   })
 );
@@ -31,6 +40,36 @@ app.get("/view", (req, res) => {
   res.sendFile(__dirname + "/public/view.html");
 });
 
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// Handle file upload and save to Cloudinary
+app.post('/upload', upload.single('file'), (req, res) => {
+    try {
+        
+   
+    const file = req.file;
+  console.log(file)
+    if (!file || file.size === 0) {
+      return res.status(400).json({ error: 'Empty file' });
+    }
+  
+    console.log(req.file);
+  
+    cloudinary.uploader.upload_stream({ resource_type: 'video' }, (error, result) => {
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+  
+      res.json({ url: result.secure_url });
+    }).end(file.buffer);
+} catch (error) {
+        console.log("err = "+error)
+}
+  });
+  
+  
 // Handle socket connections
 io.on("connection", (socket) => {
   console.log("A user connected");

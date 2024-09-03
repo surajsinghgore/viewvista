@@ -9,15 +9,14 @@ const Broadcast = () => {
   const [viewerCount, setViewerCount] = useState(0);
   const [roomId, setRoomId] = useState('');
   const [streamerName, setStreamerName] = useState('');
-  const [duration, setDuration] = useState(0); // State for duration
-  const [remainingTime, setRemainingTime] = useState(0); // State for countdown
+  const [duration, setDuration] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [stream, setStream] = useState(null); // State for media stream
-  const [isPaused, setIsPaused] = useState(false); // State for stream status
+  const [recording, setRecording] = useState(false);
+
   const localVideoRef = useRef(null);
-  const peer = useRef(null);
-  const socketRef = useRef(null); // Ref for socket instance
-  const timerRef = useRef(null); // Ref for countdown timer
+  const mediaRecorderRef = useRef(null); // Ref for MediaRecorder
+  const streamRef = useRef(null); // Ref for MediaStream
 
   const sendMessage = () => {
     if (message && socket) {
@@ -30,61 +29,72 @@ const Broadcast = () => {
     if (roomId && socket) {
       socket.emit('end-stream', roomId);
     }
-    stopMediaStream(); // Stop the media stream
+    stopRecording();
   };
 
-  const stopMediaStream = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop()); // Stop all tracks
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = null; // Clear the video source
-      }
-      setStream(null); // Clear stream state
-      setIsPaused(false); // Reset pause state
-    }
-    if (timerRef.current) {
-      clearInterval(timerRef.current); // Clear the countdown timer
-    }
-  };
 
-  const togglePausePlay = () => {
-    if (stream) {
-      const isPausedNow = !isPaused;
-      setIsPaused(isPausedNow);
-      
-      // Pause or resume the media stream
-      stream.getTracks().forEach(track => {
-        if (track.readyState === 'live') {
-          track.enabled = !isPausedNow;
-        }
+
+  const uploadToServer = (blob) => {
+    console.log('Uploading to server...');
+    const formData = new FormData();
+    formData.append('file', blob, 'livestream.webm');
+
+    fetch('http://localhost:3001/upload', {
+      method: 'POST',
+      body: formData,
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Upload successful:', data);
+      })
+      .catch(error => {
+        console.error('Upload error:', error);
       });
+  };
 
-      // Update the video element
-      if (localVideoRef.current) {
-        localVideoRef.current.play();
-      }
+  const startRecording = () => {
+    if (mediaRecorderRef.current || !streamRef.current) {
+      console.warn('Recording already in progress or no stream available.');
+      return;
+    }
+
+    const options = { mimeType: 'video/webm; codecs=vp9' };
+    try {
+      const mediaRecorder = new MediaRecorder(streamRef.current, options);
+      mediaRecorder.ondataavailable = event => {
+        if (event.data.size > 0) {
+          uploadToServer(event.data);
+        }
+      };
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setRecording(true);
+    } catch (e) {
+      console.error('Failed to start recording:', e);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+      setRecording(false);
     }
   };
 
   useEffect(() => {
     if (!isInitialized) return;
 
-    socketRef.current = io('http://localhost:3001', {
+    const socketInstance = io('http://localhost:3001', {
       transports: ['websocket'],
       cors: {
         origin: 'http://localhost:3000',
       },
     });
 
-    const socketInstance = socketRef.current;
-
-    socketInstance.on('connect', () => {
-      console.log('Socket connected');
-    });
-
     setSocket(socketInstance);
 
-    peer.current = new Peer(undefined, {
+    const peer = new Peer(undefined, {
       path: '/peerjs',
       host: '/',
       port: '9001',
@@ -93,25 +103,21 @@ const Broadcast = () => {
     navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
-    }).then(userStream => {
-      setStream(userStream); // Save the media stream
+    }).then(stream => {
+      streamRef.current = stream; // Store the stream for recording
 
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = userStream; // Assign the stream to the video element
-        localVideoRef.current.onloadedmetadata = () => {
-          localVideoRef.current.play(); // Ensure video is playing once metadata is loaded
-        };
+        localVideoRef.current.srcObject = stream;
       }
 
-      peer.current.on('call', call => {
-        call.answer(userStream);
-        call.on('stream', userVideoStream => {
-          console.log("Received stream from user");
-        });
+      peer.on('open', id => {
+        if (socketInstance) {
+          socketInstance.emit('join-room', roomId, id, streamerName);
+        }
       });
 
       socketInstance.on('user-connected', ({ userId, userName }) => {
-        connectToNewUser(userId, userStream);
+        // Handle user connection
       });
 
       socketInstance.on('chat-message', ({ message, userName }) => {
@@ -124,53 +130,43 @@ const Broadcast = () => {
 
       socketInstance.on('stream-ended', () => {
         alert('The stream has ended.');
-        stopMediaStream(); // Stop the media stream when the stream ends
+        endStream();
       });
 
-      // Countdown timer
       if (duration > 0) {
-        const endTime = Date.now() + duration * 60000; // Duration in milliseconds
-        timerRef.current = setInterval(() => {
+        const endTime = Date.now() + duration * 60000;
+        const timer = setInterval(() => {
           const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
           setRemainingTime(timeLeft);
 
           if (timeLeft === 0) {
-            endStream(); // End the stream when countdown reaches 0
+            endStream();
           }
         }, 1000);
+
+        return () => clearInterval(timer);
       }
+
+      return () => {
+        if (socketInstance) {
+          socketInstance.disconnect();
+        }
+        if (peer) {
+          peer.destroy();
+        }
+        stopRecording();
+      };
     }).catch(err => {
-      console.error("Error accessing media devices:", err);
+      console.error('Error accessing media devices:', err);
     });
 
-    peer.current.on('open', id => {
-      if (socketInstance) {
-        socketInstance.emit('join-room', roomId, id, streamerName);
-      }
-    });
-
-    const connectToNewUser = (userId, userStream) => {
-      const call = peer.current.call(userId, userStream);
-      call.on('stream', userVideoStream => {
-        console.log("Connected to user", userId);
-      });
-    };
-
-    return () => {
-      if (socketInstance) {
-        socketInstance.disconnect();
-      }
-      if (peer.current) {
-        peer.current.destroy();
-      }
-      stopMediaStream(); // Ensure stream is stopped on cleanup
-    };
   }, [isInitialized, roomId, streamerName, duration]);
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (roomId && streamerName && duration > 0) {
       setIsInitialized(true);
+      
     } else {
       alert("Please enter Room ID, Streamer Name, and Duration");
     }
@@ -227,8 +223,16 @@ const Broadcast = () => {
         <>
           <h1>WebRTC Broadcaster</h1>
           <h2>Room ID: {roomId}</h2>
-          <h2>Time Remaining: {formatTime(remainingTime)}</h2> {/* Display countdown */}
-          <video ref={localVideoRef} autoPlay muted></video>
+          <h2>Time Remaining: {formatTime(remainingTime)}</h2>
+
+          <video ref={localVideoRef} autoPlay muted />
+
+          {recording ? (
+            <button onClick={stopRecording}>End Stream</button>
+          ) : (
+            <button onClick={startRecording}>Start Recording</button>
+          )}
+
           <div>
             <h2>Chat</h2>
             <div>
@@ -244,11 +248,8 @@ const Broadcast = () => {
             />
             <button onClick={sendMessage}>Send</button>
           </div>
+
           <h2>Viewer Count: {viewerCount}</h2>
-          <button onClick={endStream}>End Stream</button>
-          <button onClick={togglePausePlay}>
-            {isPaused ? 'Resume Stream' : 'Pause Stream'}
-          </button>
         </>
       )}
     </div>

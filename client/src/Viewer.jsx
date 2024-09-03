@@ -9,11 +9,12 @@ const Viewer = () => {
   const [viewerCount, setViewerCount] = useState(0);
   const [roomId, setRoomId] = useState("");
   const [viewerName, setViewerName] = useState("");
-  const [remainingTime, setRemainingTime] = useState(null); // State for remaining time
+  const [remainingTime, setRemainingTime] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const remoteVideoRef = useRef(null);
   const playButtonRef = useRef(null);
   const peer = useRef(null);
+
   useEffect(() => {
     if (!isInitialized) return;
 
@@ -43,6 +44,20 @@ const Viewer = () => {
 
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = userVideoStream;
+
+          // Start recording the received stream
+          const recorder = new MediaRecorder(userVideoStream);
+          const chunks = [];
+          recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              chunks.push(e.data);
+            }
+          };
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            uploadToCloudinary(blob);
+          };
+          recorder.start();
 
           playButtonRef.current.addEventListener("click", () => {
             remoteVideoRef.current
@@ -113,6 +128,24 @@ const Viewer = () => {
     }
   };
 
+  const uploadToCloudinary = (blob) => {
+    const formData = new FormData();
+    formData.append('file', blob);
+    formData.append('upload_preset', 'YOUR_UPLOAD_PRESET');
+
+    fetch('https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/video/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('Upload successful:', data);
+    })
+    .catch(error => {
+      console.error('Upload error:', error);
+    });
+  };
+
   const formatTime = (seconds) => {
     if (seconds === null) return "N/A";
     const minutes = Math.floor(seconds / 60);
@@ -143,7 +176,7 @@ const Viewer = () => {
         <>
           <h1>WebRTC Viewer</h1>
           <h2>Room ID: {roomId}</h2>
-          <h2>Time Remaining: {formatTime(remainingTime)}</h2> {/* Display remaining time */}
+          <h2>Time Remaining: {formatTime(remainingTime)}</h2>
           <video ref={remoteVideoRef} autoPlay playsInline></video>
           <button ref={playButtonRef}>Play Video</button>
           <div>
