@@ -9,12 +9,11 @@ const Viewer = () => {
   const [viewerCount, setViewerCount] = useState(0);
   const [roomId, setRoomId] = useState("");
   const [viewerName, setViewerName] = useState("");
-  const [remainingTime, setRemainingTime] = useState(null);
+  const [remainingTime, setRemainingTime] = useState(null); // State for remaining time
   const [isInitialized, setIsInitialized] = useState(false);
   const remoteVideoRef = useRef(null);
   const playButtonRef = useRef(null);
   const peer = useRef(null);
-
   useEffect(() => {
     if (!isInitialized) return;
 
@@ -44,20 +43,6 @@ const Viewer = () => {
 
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = userVideoStream;
-
-          // Start recording the received stream
-          const recorder = new MediaRecorder(userVideoStream);
-          const chunks = [];
-          recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-              chunks.push(e.data);
-            }
-          };
-          recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            uploadToCloudinary(blob);
-          };
-          recorder.start();
 
           playButtonRef.current.addEventListener("click", () => {
             remoteVideoRef.current
@@ -128,24 +113,6 @@ const Viewer = () => {
     }
   };
 
-  const uploadToCloudinary = (blob) => {
-    const formData = new FormData();
-    formData.append('file', blob);
-    formData.append('upload_preset', 'YOUR_UPLOAD_PRESET');
-
-    fetch('https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/video/upload', {
-      method: 'POST',
-      body: formData,
-    })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Upload successful:', data);
-    })
-    .catch(error => {
-      console.error('Upload error:', error);
-    });
-  };
-
   const formatTime = (seconds) => {
     if (seconds === null) return "N/A";
     const minutes = Math.floor(seconds / 60);
@@ -154,46 +121,76 @@ const Viewer = () => {
   };
 
   return (
-    <div>
-      {!isInitialized ? (
-        <form onSubmit={handleFormSubmit}>
-          <h1>Join Stream</h1>
-          <div>
-            <label>
-              Room ID:
-              <input type="text" value={roomId} onChange={(e) => setRoomId(e.target.value)} required />
-            </label>
-          </div>
-          <div>
-            <label>
-              Viewer Name:
-              <input type="text" value={viewerName} onChange={(e) => setViewerName(e.target.value)} required />
-            </label>
-          </div>
-          <button type="submit">Join Stream</button>
-        </form>
-      ) : (
-        <>
-          <h1>WebRTC Viewer</h1>
-          <h2>Room ID: {roomId}</h2>
-          <h2>Time Remaining: {formatTime(remainingTime)}</h2>
-          <video ref={remoteVideoRef} autoPlay playsInline></video>
-          <button ref={playButtonRef}>Play Video</button>
-          <div>
-            <h2>Chat</h2>
+    <div className="flex">
+      <div className="flex-1 p-4">
+        {!isInitialized ? (
+          <form onSubmit={handleFormSubmit} className="space-y-4">
+            <h1 className="text-2xl font-bold">Join Stream</h1>
             <div>
-              {chatMessages.map((msg, index) => (
-                <p key={index}>
-                  <strong>{msg.userName}:</strong> {msg.message}
-                </p>
-              ))}
+              <label className="block text-sm font-medium">
+                Room ID:
+                <input
+                  type="text"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+                />
+              </label>
             </div>
-            <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message" />
-            <button onClick={sendMessage}>Send</button>
-          </div>
-          <h2>Viewer Count: {viewerCount}</h2>
-        </>
-      )}
+            <div>
+              <label className="block text-sm font-medium">
+                Viewer Name:
+                <input
+                  type="text"
+                  value={viewerName}
+                  onChange={(e) => setViewerName(e.target.value)}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+                />
+              </label>
+            </div>
+            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+              Join Stream
+            </button>
+          </form>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold mb-4">WebRTC Viewer</h1>
+            <div className="flex">
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold">Room ID: {roomId}</h2>
+                <h2 className="text-xl font-semibold">Time Remaining: {formatTime(remainingTime)}</h2>
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-[100vw] border rounded-md h-[400px]"></video>
+                <button ref={playButtonRef} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 mt-4">
+                  Play Video
+                </button>
+              </div>
+              <div className="w-1/3 bg-gray-100 p-4 border-l">
+                <h2 className="text-xl font-semibold mb-2">Chat</h2>
+                <div className="h-80 overflow-y-auto mb-4">
+                  {chatMessages.map((msg, index) => (
+                    <p key={index} className="mb-2">
+                      <strong>{msg.userName}:</strong> {msg.message}
+                    </p>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Type a message"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+                />
+                <button onClick={sendMessage} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 mt-2">
+                  Send
+                </button>
+                <h2 className="text-xl font-semibold mt-4">Viewer Count: {viewerCount}</h2>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -9,14 +9,15 @@ const Broadcast = () => {
   const [viewerCount, setViewerCount] = useState(0);
   const [roomId, setRoomId] = useState('');
   const [streamerName, setStreamerName] = useState('');
-  const [duration, setDuration] = useState(0);
-  const [remainingTime, setRemainingTime] = useState(0);
+  const [duration, setDuration] = useState(0); // State for duration
+  const [remainingTime, setRemainingTime] = useState(0); // State for countdown
   const [isInitialized, setIsInitialized] = useState(false);
-  const [recording, setRecording] = useState(false);
-
+  const [stream, setStream] = useState(null); // State for media stream
+  const [isPaused, setIsPaused] = useState(false); // State for stream status
   const localVideoRef = useRef(null);
-  const mediaRecorderRef = useRef(null); // Ref for MediaRecorder
-  const streamRef = useRef(null); // Ref for MediaStream
+  const peer = useRef(null);
+  const socketRef = useRef(null); // Ref for socket instance
+  const timerRef = useRef(null); // Ref for countdown timer
 
   const sendMessage = () => {
     if (message && socket) {
@@ -29,72 +30,61 @@ const Broadcast = () => {
     if (roomId && socket) {
       socket.emit('end-stream', roomId);
     }
-    stopRecording();
+    stopMediaStream(); // Stop the media stream
   };
 
-
-
-  const uploadToServer = (blob) => {
-    console.log('Uploading to server...');
-    const formData = new FormData();
-    formData.append('file', blob, 'livestream.webm');
-
-    fetch('http://localhost:3001/upload', {
-      method: 'POST',
-      body: formData,
-    })
-      .then(response => response.json())
-      .then(data => {
-        console.log('Upload successful:', data);
-      })
-      .catch(error => {
-        console.error('Upload error:', error);
-      });
-  };
-
-  const startRecording = () => {
-    if (mediaRecorderRef.current || !streamRef.current) {
-      console.warn('Recording already in progress or no stream available.');
-      return;
+  const stopMediaStream = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop()); // Stop all tracks
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null; // Clear the video source
+      }
+      setStream(null); // Clear stream state
+      setIsPaused(false); // Reset pause state
     }
+    if (timerRef.current) {
+      clearInterval(timerRef.current); // Clear the countdown timer
+    }
+  };
 
-    const options = { mimeType: 'video/webm; codecs=vp9' };
-    try {
-      const mediaRecorder = new MediaRecorder(streamRef.current, options);
-      mediaRecorder.ondataavailable = event => {
-        if (event.data.size > 0) {
-          uploadToServer(event.data);
+  const togglePausePlay = () => {
+    if (stream) {
+      const isPausedNow = !isPaused;
+      setIsPaused(isPausedNow);
+      
+      // Pause or resume the media stream
+      stream.getTracks().forEach(track => {
+        if (track.readyState === 'live') {
+          track.enabled = !isPausedNow;
         }
-      };
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-      setRecording(true);
-    } catch (e) {
-      console.error('Failed to start recording:', e);
-    }
-  };
+      });
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
-      setRecording(false);
+      // Update the video element
+      if (localVideoRef.current) {
+        localVideoRef.current.play();
+      }
     }
   };
 
   useEffect(() => {
     if (!isInitialized) return;
 
-    const socketInstance = io('http://localhost:3001', {
+    socketRef.current = io('http://localhost:3001', {
       transports: ['websocket'],
       cors: {
         origin: 'http://localhost:3000',
       },
     });
 
+    const socketInstance = socketRef.current;
+
+    socketInstance.on('connect', () => {
+      console.log('Socket connected');
+    });
+
     setSocket(socketInstance);
 
-    const peer = new Peer(undefined, {
+    peer.current = new Peer(undefined, {
       path: '/peerjs',
       host: '/',
       port: '9001',
@@ -103,21 +93,25 @@ const Broadcast = () => {
     navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
-    }).then(stream => {
-      streamRef.current = stream; // Store the stream for recording
+    }).then(userStream => {
+      setStream(userStream); // Save the media stream
 
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.srcObject = userStream; // Assign the stream to the video element
+        localVideoRef.current.onloadedmetadata = () => {
+          localVideoRef.current.play(); // Ensure video is playing once metadata is loaded
+        };
       }
 
-      peer.on('open', id => {
-        if (socketInstance) {
-          socketInstance.emit('join-room', roomId, id, streamerName);
-        }
+      peer.current.on('call', call => {
+        call.answer(userStream);
+        call.on('stream', userVideoStream => {
+          console.log("Received stream from user");
+        });
       });
 
       socketInstance.on('user-connected', ({ userId, userName }) => {
-        // Handle user connection
+        connectToNewUser(userId, userStream);
       });
 
       socketInstance.on('chat-message', ({ message, userName }) => {
@@ -130,43 +124,53 @@ const Broadcast = () => {
 
       socketInstance.on('stream-ended', () => {
         alert('The stream has ended.');
-        endStream();
+        stopMediaStream(); // Stop the media stream when the stream ends
       });
 
+      // Countdown timer
       if (duration > 0) {
-        const endTime = Date.now() + duration * 60000;
-        const timer = setInterval(() => {
+        const endTime = Date.now() + duration * 60000; // Duration in milliseconds
+        timerRef.current = setInterval(() => {
           const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
           setRemainingTime(timeLeft);
 
           if (timeLeft === 0) {
-            endStream();
+            endStream(); // End the stream when countdown reaches 0
           }
         }, 1000);
-
-        return () => clearInterval(timer);
       }
-
-      return () => {
-        if (socketInstance) {
-          socketInstance.disconnect();
-        }
-        if (peer) {
-          peer.destroy();
-        }
-        stopRecording();
-      };
     }).catch(err => {
-      console.error('Error accessing media devices:', err);
+      console.error("Error accessing media devices:", err);
     });
 
+    peer.current.on('open', id => {
+      if (socketInstance) {
+        socketInstance.emit('join-room', roomId, id, streamerName);
+      }
+    });
+
+    const connectToNewUser = (userId, userStream) => {
+      const call = peer.current.call(userId, userStream);
+      call.on('stream', userVideoStream => {
+        console.log("Connected to user", userId);
+      });
+    };
+
+    return () => {
+      if (socketInstance) {
+        socketInstance.disconnect();
+      }
+      if (peer.current) {
+        peer.current.destroy();
+      }
+      stopMediaStream(); // Ensure stream is stopped on cleanup
+    };
   }, [isInitialized, roomId, streamerName, duration]);
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (roomId && streamerName && duration > 0) {
       setIsInitialized(true);
-      
     } else {
       alert("Please enter Room ID, Streamer Name, and Duration");
     }
@@ -179,34 +183,37 @@ const Broadcast = () => {
   };
 
   return (
-    <div>
+    <div className="flex">
+    <div className="flex-1 p-4">
       {!isInitialized ? (
-        <form onSubmit={handleFormSubmit}>
-          <h1>Set Up Your Broadcast</h1>
+        <form onSubmit={handleFormSubmit} className="space-y-4">
+          <h1 className="text-2xl font-bold">Set Up Your Broadcast</h1>
           <div>
-            <label>
+            <label className="block text-sm font-medium">
               Room ID:
               <input
                 type="text"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
                 required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
               />
             </label>
           </div>
           <div>
-            <label>
+            <label className="block text-sm font-medium">
               Streamer Name:
               <input
                 type="text"
                 value={streamerName}
                 onChange={(e) => setStreamerName(e.target.value)}
                 required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
               />
             </label>
           </div>
           <div>
-            <label>
+            <label className="block text-sm font-medium">
               Duration (minutes):
               <input
                 type="number"
@@ -214,45 +221,57 @@ const Broadcast = () => {
                 value={duration}
                 onChange={(e) => setDuration(Number(e.target.value))}
                 required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
               />
             </label>
           </div>
-          <button type="submit">Start Broadcast</button>
+          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+            Start Broadcast
+          </button>
         </form>
       ) : (
         <>
-          <h1>WebRTC Broadcaster</h1>
-          <h2>Room ID: {roomId}</h2>
-          <h2>Time Remaining: {formatTime(remainingTime)}</h2>
-
-          <video ref={localVideoRef} autoPlay muted />
-
-          {recording ? (
-            <button onClick={stopRecording}>End Stream</button>
-          ) : (
-            <button onClick={startRecording}>Start Recording</button>
-          )}
-
-          <div>
-            <h2>Chat</h2>
-            <div>
-              {chatMessages.map((msg, index) => (
-                <p key={index}><strong>{msg.userName}:</strong> {msg.message}</p>
-              ))}
+          <h1 className="text-2xl font-bold mb-4">WebRTC Broadcaster</h1>
+          <div className="flex">
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold">Room ID: {roomId}</h2>
+              <h2 className="text-xl font-semibold">Time Remaining: {formatTime(remainingTime)}</h2>
+              <video ref={localVideoRef} autoPlay muted className="w-[100vw] border rounded-md h-[400px]"></video>
+              <div className="mt-4">
+                <button onClick={endStream} className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
+                  End Stream
+                </button>
+                <button onClick={togglePausePlay} className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 ml-2">
+                  {isPaused ? 'Resume Stream' : 'Pause Stream'}
+                </button>
+              </div>
             </div>
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message"
-            />
-            <button onClick={sendMessage}>Send</button>
+            <div className="w-1/3 bg-gray-100 p-4 border-l">
+              <h2 className="text-xl font-semibold mb-2">Chat</h2>
+              <div className="h-80 overflow-y-auto mb-4">
+                {chatMessages.map((msg, index) => (
+                  <p key={index} className="mb-2">
+                    <strong>{msg.userName}:</strong> {msg.message}
+                  </p>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Type a message"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+              />
+              <button onClick={sendMessage} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 mt-2">
+                Send
+              </button>
+              <h2 className="text-xl font-semibold mt-4">Viewer Count: {viewerCount}</h2>
+            </div>
           </div>
-
-          <h2>Viewer Count: {viewerCount}</h2>
         </>
       )}
     </div>
+  </div>
   );
 };
 
