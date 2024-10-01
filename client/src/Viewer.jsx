@@ -9,11 +9,12 @@ const Viewer = () => {
   const [viewerCount, setViewerCount] = useState(0);
   const [roomId, setRoomId] = useState("");
   const [viewerName, setViewerName] = useState("");
-  const [remainingTime, setRemainingTime] = useState(null); // State for remaining time
+  const [remainingTime, setRemainingTime] = useState(null);
+  const [pricePerMinute, setPricePerMinute] = useState(0); // State for price per minute
   const [isInitialized, setIsInitialized] = useState(false);
   const remoteVideoRef = useRef(null);
-  const playButtonRef = useRef(null);
   const peer = useRef(null);
+
   useEffect(() => {
     if (!isInitialized) return;
 
@@ -39,28 +40,8 @@ const Viewer = () => {
     peer.current.on("call", (call) => {
       call.answer();
       call.on("stream", (userVideoStream) => {
-        console.log("Received stream from broadcaster:", userVideoStream);
-
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = userVideoStream;
-
-          playButtonRef.current.addEventListener("click", () => {
-            remoteVideoRef.current
-              .play()
-              .then(() => {
-                console.log("Video started playing");
-                playButtonRef.current.style.display = "none";
-              })
-              .catch((err) => console.error("Error: ", err));
-          });
-
-          remoteVideoRef.current.onloadedmetadata = () => {
-            console.log("Video metadata loaded");
-          };
-
-          remoteVideoRef.current.onerror = (e) => {
-            console.error("Video error:", e);
-          };
         }
       });
     });
@@ -74,13 +55,16 @@ const Viewer = () => {
     });
 
     socketInstance.on("remaining-time", (time) => {
-      console.log("Remaining time received:", time);
       setRemainingTime(time);
     });
 
     socketInstance.on("stream-ended", () => {
       alert("The stream has ended.");
       setRemainingTime(null);
+    });
+
+    socketInstance.on("price-per-minute", (price) => {
+      setPricePerMinute(price);
     });
 
     peer.current.on("open", (id) => {
@@ -97,6 +81,13 @@ const Viewer = () => {
     };
   }, [isInitialized, roomId, viewerName]);
 
+  const formatTime = (seconds) => {
+    if (seconds === null) return "N/A";
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (roomId && viewerName) {
@@ -111,13 +102,6 @@ const Viewer = () => {
       socket.emit("chat-message", { message, userName: viewerName });
       setMessage("");
     }
-  };
-
-  const formatTime = (seconds) => {
-    if (seconds === null) return "N/A";
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   return (
@@ -161,10 +145,8 @@ const Viewer = () => {
               <div className="flex-1">
                 <h2 className="text-xl font-semibold">Room ID: {roomId}</h2>
                 <h2 className="text-xl font-semibold">Time Remaining: {formatTime(remainingTime)}</h2>
+                <h2 className="text-xl font-semibold">Price per Minute: ${pricePerMinute.toFixed(2)}</h2>
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-[100vw] border rounded-md h-[400px]"></video>
-                <button ref={playButtonRef} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 mt-4">
-                  Play Video
-                </button>
               </div>
               <div className="w-1/3 bg-gray-100 p-4 border-l">
                 <h2 className="text-xl font-semibold mb-2">Chat</h2>
