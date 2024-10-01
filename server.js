@@ -1,10 +1,11 @@
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
-const { PeerServer } = require("peer");
+const { ExpressPeerServer } = require("peer");  // Using ExpressPeerServer for better integration
 const cors = require("cors");
 const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
+const path = require("path");
 
 // Cloudinary configuration
 cloudinary.config({
@@ -22,14 +23,21 @@ const io = socketIo(server, {
   }
 });
 
-// Set up PeerJS server (you may need to deploy PeerServer separately)
-const peerServer = PeerServer({
-  port: process.env.PORT || 443, // Use environment variable for Render
-  path: "/peerjs"
-});
+// Serve static files from React build
+app.use(express.static(path.join(__dirname, "build")));
 
-// Serve static files
-app.use(express.static("public"));
+// PeerJS server
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  path: "/peerjs",
+});
+app.use("/peerjs", peerServer);
+
+// Configure CORS
+app.use(cors({
+  origin: "http://localhost:3001",
+  methods: ["GET", "POST"]
+}));
 
 // Serve different HTML files based on routes
 app.get("/broadcast", (req, res) => {
@@ -56,7 +64,6 @@ app.post('/upload', upload.single('file'), (req, res) => {
       if (error) {
         return res.status(500).json({ error: error.message });
       }
-
       res.json({ url: result.secure_url });
     }).end(file.buffer);
   } catch (error) {
@@ -157,8 +164,8 @@ io.on("connection", (socket) => {
   });
 });
 
-// Use the port assigned by Render
-const PORT =  3001;;
+// Use dynamic port from Render
+const PORT =  3001;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
