@@ -8,10 +8,10 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Configure CORS to allow requests from http://localhost:3001
+// Configure CORS to allow requests from https://viewvista.onrender.com
 app.use(
   cors({
-    origin: "http://localhost:3001", // Allow React app's origin
+    origin: "https://viewvista.onrender.com", // Allow React app's origin
     methods: ["GET", "POST"],
   })
 );

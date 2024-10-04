@@ -17,10 +17,10 @@ const Viewer = () => {
 
   useEffect(() => {
     if (!isInitialized) return;
-    const socketInstance = io('http://localhost:3001', {
+    const socketInstance = io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
-        origin: 'http://localhost:3001',
+        origin: 'https://viewvista.onrender.com',
       },
     });
 

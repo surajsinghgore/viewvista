@@ -12,10 +12,10 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const socketInstance = io('http://localhost:3001', {
+    const socketInstance = io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
-        origin: 'http://localhost:3001',
+        origin: 'https://viewvista.onrender.com',
       },
     });
 

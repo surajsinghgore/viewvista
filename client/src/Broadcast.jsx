@@ -69,10 +69,10 @@ const Broadcast = () => {
   useEffect(() => {
     if (!isInitialized) return;
 
-    socketRef.current = io('http://localhost:3001', {
+    socketRef.current = io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
-        origin: 'http://localhost:3001',
+        origin: 'https://viewvista.onrender.com',
       },
     });
 
