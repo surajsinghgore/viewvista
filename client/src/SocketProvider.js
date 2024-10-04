@@ -15,7 +15,7 @@ export const SocketProvider = ({ children }) => {
     const socketInstance = io('http://localhost:3001', {
       transports: ['websocket'],
       cors: {
-        origin: 'http://localhost:3000',
+        origin: 'http://localhost:3001',
       },
     });
 

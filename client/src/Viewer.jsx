@@ -17,11 +17,10 @@ const Viewer = () => {
 
   useEffect(() => {
     if (!isInitialized) return;
-
-    const socketInstance = io("http://localhost:3001", {
-      transports: ["websocket"],
+    const socketInstance = io('http://localhost:3001', {
+      transports: ['websocket'],
       cors: {
-        origin: "http://localhost:3000",
+        origin: 'http://localhost:3001',
       },
     });
 
