@@ -18,7 +18,7 @@ app.use(
 
 // Set up PeerJS server
 const peerServer = PeerServer({ 
-    port: 443, 
+  port: process.env.PORT || 9001, 
     path: "/peerjs",
     cors: {
         origin: "https://viewvista.onrender.com", // Allow requests from your frontend

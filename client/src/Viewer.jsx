@@ -31,9 +31,9 @@ const Viewer = () => {
     setSocket(socketInstance);
 
     peer.current = new Peer(undefined, {
-      path: "/peerjs",
-      host: 'viewvista.onrender.com', // Use the actual hostname
-      port: "443", // Port number where the PeerJS server is running
+      path: "/peerjs",  // Path to the PeerJS server
+      host: 'viewvista.onrender.com', // The hostname of your backend server
+      port: process.env.NODE_ENV === 'production' ? '443' : '9001', // Use 443 for production, or fallback to 9001 for development
       secure: true // Set to true if using HTTPS
   });
 
