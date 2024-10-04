@@ -17,7 +17,7 @@ const Viewer = () => {
 
   useEffect(() => {
     if (!isInitialized) return;
-    const socketInstance = io('https://viewvista.onrender.com', {
+    const socketInstance =io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
         origin: 'https://viewvista.onrender.com',
@@ -32,9 +32,11 @@ const Viewer = () => {
 
     peer.current = new Peer(undefined, {
       path: "/peerjs",
-      host: "/",
-      port: "9001",
-    });
+      host: 'viewvista.onrender.com', // Use the actual hostname
+      port: "443", // Port number where the PeerJS server is running
+      secure: true // Set to true if using HTTPS
+  });
+
 
     peer.current.on("call", (call) => {
       call.answer();

@@ -13,12 +13,11 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     const socketInstance = io('https://viewvista.onrender.com', {
-      transports: ['websocket'],
-      cors: {
-        origin: 'https://viewvista.onrender.com',
-      },
-    });
-
+  transports: ['websocket'],
+  cors: {
+    origin: 'https://viewvista.onrender.com',
+  },
+});
     socketInstance.on('connect', () => {
       console.log('Socket connected');
     });

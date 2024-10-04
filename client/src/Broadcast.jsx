@@ -85,10 +85,12 @@ const Broadcast = () => {
     setSocket(socketInstance);
 
     peer.current = new Peer(undefined, {
-      path: '/peerjs',
-      host: '/',
-      port: '9001',
-    });
+      path: "/peerjs",
+      host: 'viewvista.onrender.com', // Use the actual hostname
+      port: "443", // Port number where the PeerJS server is running
+      secure: true // Set to true if using HTTPS
+  });
+
 
     navigator.mediaDevices.getUserMedia({
       video: true,
