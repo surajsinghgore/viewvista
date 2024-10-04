@@ -13,7 +13,7 @@ const App = () => {
         <Route path="/broadcast" element={<Broadcast />} />
         <Route path="/view" element={<Viewer />} />
         <Route path="/public" element={<PublicStreams />} />
-        <Route path="/" element={<h1>Welcome! Navigate to /broadcast or /view</h1>} />
+        <Route path="/" element={<h1>Welcome! Navigate to /broadcast or /view 1</h1>} />
       </Routes>
     </Router>
   );
