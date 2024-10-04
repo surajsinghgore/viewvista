@@ -4,6 +4,7 @@ const socketIo = require("socket.io");
 const { PeerServer } = require("peer");
 const cors = require("cors"); // Import cors
 const path = require('path');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
@@ -16,20 +17,22 @@ app.use(
   })
 );
 
-// Set up PeerJS server
+// Use the same server instance for PeerJS
 const peerServer = PeerServer({ 
-  port: process.env.PORT || 9001, 
-    path: "/peerjs",
-    cors: {
-        origin: "https://viewvista.onrender.com", // Allow requests from your frontend
-        methods: ['GET', 'POST']
-    }
+  server: server, // Use the existing HTTP server
+  path: "/peerjs",
+  cors: {
+    origin: "https://viewvista.onrender.com", // Allow requests from your frontend
+    methods: ['GET', 'POST']
+  }
 });
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'client/build')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
+
 // Serve different HTML files based on routes
 app.get("/broadcast", (req, res) => {
   res.sendFile(__dirname + "/public/broadcast.html");
@@ -88,9 +91,10 @@ io.on("connection", (socket) => {
         console.error("Room ID is missing for ending stream");
       }
     });
-  });
+});
 
-  const PORT = process.env.PORT || 3001; // Use environment variable PORT or fallback to 3001
+// Use the PORT environment variable or fallback to 3001
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
