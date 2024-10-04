@@ -12,18 +12,25 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
+    // Initialize the socket connection
     const socketInstance = io('https://viewvista.onrender.com', {
-  transports: ['websocket'],
-  cors: {
-    origin: 'https://viewvista.onrender.com',
-  },
-});
+      transports: ['websocket'],
+      cors: {
+        origin: 'https://viewvista.onrender.com',
+      },
+    });
+
     socketInstance.on('connect', () => {
       console.log('Socket connected');
     });
 
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+
     setSocket(socketInstance);
 
+    // Clean up on unmount
     return () => {
       socketInstance.disconnect();
     };

@@ -69,12 +69,12 @@ const Broadcast = () => {
   useEffect(() => {
     if (!isInitialized) return;
 
-    socketRef.current = io('https://viewvista.onrender.com', {
+    socketRef.current =  io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
-        origin: 'https://viewvista.onrender.com',
+          origin: 'https://viewvista.onrender.com',
       },
-    });
+  });
 
     const socketInstance = socketRef.current;
 
@@ -84,10 +84,10 @@ const Broadcast = () => {
 
     setSocket(socketInstance);
 
-    peer.current =new Peer(undefined, {
-      path: "/peerjs",  // Path to the PeerJS server
-      host: 'viewvista.onrender.com', // The hostname of your backend server
-      port: process.env.NODE_ENV === 'production' ? '443' : '9001', // Use 443 for production, or fallback to 9001 for development
+    peer.current = new Peer(undefined, {
+      path: "/peerjs",  // Ensure this path is correct
+      host: 'viewvista.onrender.com',
+      port: process.env.NODE_ENV === 'production' ? '443' : '9001',
       secure: true // Set to true if using HTTPS
   });
 
