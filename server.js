@@ -17,8 +17,13 @@ app.use(
 );
 
 // Set up PeerJS server
-const peerServer = PeerServer({ port: 9001, path: "/peerjs" });
-
+const peerServer = PeerServer({ 
+  server: server, // Use the same server instance
+  path: "/peerjs",
+  cors: {
+    origin: "https://viewvista.onrender.com", // Allow requests from your frontend
+  },
+});
 // Serve static files
 app.use(express.static(path.join(__dirname, 'client/build')));
 app.get('*', (req, res) => {
