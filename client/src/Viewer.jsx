@@ -10,31 +10,35 @@ const Viewer = () => {
   const [roomId, setRoomId] = useState("");
   const [viewerName, setViewerName] = useState("");
   const [remainingTime, setRemainingTime] = useState(null);
-  const [pricePerMinute, setPricePerMinute] = useState(0); // State for price per minute
+  const [pricePerMinute, setPricePerMinute] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const remoteVideoRef = useRef(null);
   const peer = useRef(null);
 
   useEffect(() => {
     if (!isInitialized) return;
-    const socketInstance = io('http://localhost:3001', {
+
+    // Update the socket connection URL to the deployed domain
+    const socketInstance = io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
-        origin: 'http://localhost:3000',
+        origin: 'https://viewvista.onrender.com',
       },
     });
+    
     socketInstance.on("connect", () => {
       console.log("Socket connected");
     });
 
     setSocket(socketInstance);
- 
+
+    // Configure PeerJS with the deployed host and secure settings
     peer.current = new Peer(undefined, {
       path: "/peerjs",
-      host: "/",
-      port: "9001",
+      host: "viewvista.onrender.com",  // Use the deployed domain
+      secure: true,  // Use HTTPS
+      port: "443",   // Use port 443 for HTTPS
     });
-
 
     peer.current.on("call", (call) => {
       call.answer();
