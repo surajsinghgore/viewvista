@@ -99,8 +99,9 @@ const Broadcast = () => {
 
     // Initialize PeerJS
     peer.current = new Peer(undefined, {
-      path: "/peerjs",
-      host: "viewvista.onrender.com",
+      path: "/",
+      host: "peerjs.com",
+      port: 443,
       secure: true,
     });
 

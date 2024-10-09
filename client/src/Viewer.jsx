@@ -34,8 +34,9 @@ const Viewer = () => {
 
     // Configure PeerJS with the deployed host and secure settings
     peer.current = new Peer(undefined, {
-      path: "/peerjs",
-      host: "viewvista.onrender.com",
+      path: "/",
+      host: "peerjs.com",
+      port: 443,
       secure: true,
     });
 
