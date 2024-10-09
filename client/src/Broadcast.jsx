@@ -90,7 +90,7 @@ const Broadcast = () => {
       path: "/peerjs",
       host: "viewvista.onrender.com",  // Use the deployed domain
       secure: true,  // Use HTTPS
-      port: 443,   // Port 443 for HTTPS
+   
     });
   
     // Request access to user media (video and audio)
