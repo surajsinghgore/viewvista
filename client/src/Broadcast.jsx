@@ -12,7 +12,7 @@ const Broadcast = () => {
   const [duration, setDuration] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
   const [pricePerMinute, setPricePerMinute] = useState(0);
-  const [visibility, setVisibility] = useState('public'); // New state for visibility
+  const [visibility, setVisibility] = useState('public');
   const [isInitialized, setIsInitialized] = useState(false);
   const [stream, setStream] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -68,7 +68,7 @@ const Broadcast = () => {
 
   useEffect(() => {
     if (!isInitialized) return;
-  
+
     // Update WebSocket URL to the deployed domain
     socketRef.current = io('https://viewvista.onrender.com', {
       transports: ['websocket'],
@@ -76,71 +76,73 @@ const Broadcast = () => {
         origin: 'https://viewvista.onrender.com',
       },
     });
-  
+
     const socketInstance = socketRef.current;
-  
+
     socketInstance.on('connect', () => {
       console.log('Socket connected');
     });
-  
+
     setSocket(socketInstance);
-  
-    // Initialize PeerJS with secure connection and the correct host
+
+    // Initialize PeerJS
     peer.current = new Peer(undefined, {
       path: "/peerjs",
-      host: "viewvista.onrender.com",  // Use the deployed domain
-      secure: true,  // Use HTTPS
-   
+      host: "viewvista.onrender.com",
+      secure: true,
     });
-  
+
     // Request access to user media (video and audio)
     navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
     }).then(userStream => {
       setStream(userStream);
-  
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = userStream;
         localVideoRef.current.onloadedmetadata = () => {
           localVideoRef.current.play();
         };
       }
-  
+
+      // Handle incoming calls
       peer.current.on('call', call => {
         call.answer(userStream);
         call.on('stream', userVideoStream => {
           console.log("Received stream from user");
+          // Handle the received stream (if needed)
         });
       });
-  
+
+      // Handle user connections
       socketInstance.on('user-connected', ({ userId, userName }) => {
         connectToNewUser(userId, userStream);
       });
-  
+
+      // Handle incoming chat messages
       socketInstance.on('chat-message', ({ message, userName }) => {
         setChatMessages(prevMessages => [...prevMessages, { message, userName }]);
       });
-  
+
+      // Update viewer count
       socketInstance.on('viewer-count', count => {
         setViewerCount(count);
       });
-  
+
+      // Handle stream ended event
       socketInstance.on('stream-ended', () => {
         alert('The stream has ended.');
         stopMediaStream();
       });
-  
-      socketInstance.on('price-per-minute', price => {
-        setPricePerMinute(price);
-      });
-  
+
+      // Set up the timer for the duration
       if (duration > 0) {
         const endTime = Date.now() + duration * 60000;
         timerRef.current = setInterval(() => {
           const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
           setRemainingTime(timeLeft);
-  
+
           if (timeLeft === 0) {
             endStream();
           }
@@ -149,20 +151,22 @@ const Broadcast = () => {
     }).catch(err => {
       console.error("Error accessing media devices:", err);
     });
-  
+
+    // Emit the join-room event when the peer ID is ready
     peer.current.on('open', id => {
       if (socketInstance) {
         socketInstance.emit('join-room', roomId, id, streamerName, visibility);
       }
     });
-  
+
     const connectToNewUser = (userId, userStream) => {
       const call = peer.current.call(userId, userStream);
       call.on('stream', userVideoStream => {
         console.log("Connected to user", userId);
+        // Here, you can display the received video stream if needed
       });
     };
-  
+
     return () => {
       if (socketInstance) {
         socketInstance.disconnect();
@@ -173,6 +177,7 @@ const Broadcast = () => {
       stopMediaStream();
     };
   }, [isInitialized, roomId, streamerName, duration, visibility]);
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (roomId && streamerName && duration > 0 && pricePerMinute > 0) {

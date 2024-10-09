@@ -9,6 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// CORS setup
 app.use(
   cors({
     origin: "*", // For production, replace "*" with your frontend's domain.
@@ -36,8 +37,9 @@ io.on("connection", (socket) => {
   let currentRoom = null;
   let currentUserName = "";
 
+  // Listen for users joining a room
   socket.on("join-room", (roomId, userId, userName) => {
-    console.log("user joined");
+    console.log(`${userName} joined room ${roomId}`);
     if (roomId && userId && userName) {
       currentRoom = roomId;
       currentUserName = userName;
@@ -47,11 +49,26 @@ io.on("connection", (socket) => {
       socket.to(roomId).emit("user-connected", { userId, userName });
 
       // Update viewer count
-      io.to(roomId).emit("viewer-count", io.sockets.adapter.rooms.get(roomId)?.size || 0);
+      const viewerCount = io.sockets.adapter.rooms.get(roomId)?.size || 0;
+      io.to(roomId).emit("viewer-count", viewerCount);
 
+      // Listen for chat messages
+      socket.on("chat-message", (data) => {
+        // Emit chat message to all users in the room
+        io.to(currentRoom).emit("chat-message", {
+          message: data.message,
+          userName: currentUserName,
+        });
+      });
+
+      // Handle user disconnect
       socket.on("disconnect", () => {
-        socket.to(roomId).emit("user-disconnected", { userId, userName: currentUserName });
-        io.to(roomId).emit("viewer-count", io.sockets.adapter.rooms.get(roomId)?.size || 0);
+        console.log(`${currentUserName} disconnected from room ${currentRoom}`);
+        socket.to(currentRoom).emit("user-disconnected", { userId, userName: currentUserName });
+
+        // Update viewer count
+        const updatedViewerCount = io.sockets.adapter.rooms.get(currentRoom)?.size || 0;
+        io.to(currentRoom).emit("viewer-count", updatedViewerCount);
       });
     }
   });

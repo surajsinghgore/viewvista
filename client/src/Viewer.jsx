@@ -18,7 +18,7 @@ const Viewer = () => {
   useEffect(() => {
     if (!isInitialized) return;
 
-    // Update the socket connection URL to the deployed domain
+    // Set up socket connection to the deployed domain
     const socketInstance = io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
@@ -35,46 +35,53 @@ const Viewer = () => {
     // Configure PeerJS with the deployed host and secure settings
     peer.current = new Peer(undefined, {
       path: "/peerjs",
-      host: "viewvista.onrender.com",  // Use the deployed domain
-      secure: true,  // Use HTTPS
-    
+      host: "viewvista.onrender.com",
+      secure: true,
     });
 
+    // Listen for incoming calls
     peer.current.on("call", (call) => {
-      call.answer();
+      call.answer(); // Answer the call
       call.on("stream", (userVideoStream) => {
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = userVideoStream;
+          remoteVideoRef.current.srcObject = userVideoStream; // Set remote video stream
         }
       });
     });
 
+    // Listen for chat messages from the server
     socketInstance.on("chat-message", ({ message, userName }) => {
       setChatMessages((prevMessages) => [...prevMessages, { message, userName }]);
     });
 
+    // Update viewer count
     socketInstance.on("viewer-count", (count) => {
       setViewerCount(count);
     });
 
+    // Update remaining time
     socketInstance.on("remaining-time", (time) => {
       setRemainingTime(time);
     });
 
+    // Handle stream end event
     socketInstance.on("stream-ended", () => {
       alert("The stream has ended.");
       setRemainingTime(null);
     });
 
+    // Receive price per minute
     socketInstance.on("price-per-minute", (price) => {
       setPricePerMinute(price);
     });
 
+    // Emit join-room event when the peer connection is established
     peer.current.on("open", (id) => {
       socketInstance.emit("join-room", roomId, id, viewerName);
     });
 
     return () => {
+      // Cleanup on component unmount
       if (socketInstance) {
         socketInstance.disconnect();
       }
@@ -94,7 +101,7 @@ const Viewer = () => {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (roomId && viewerName) {
-      setIsInitialized(true);
+      setIsInitialized(true); // Initialize viewer once room ID and name are provided
     } else {
       alert("Please enter both Room ID and Viewer Name");
     }
@@ -102,8 +109,8 @@ const Viewer = () => {
 
   const sendMessage = () => {
     if (message) {
-      socket.emit("chat-message", { message, userName: viewerName });
-      setMessage("");
+      socket.emit("chat-message", { message, userName: viewerName }); // Send chat message
+      setMessage(""); // Clear message input
     }
   };
 
