@@ -17,10 +17,10 @@ const Viewer = () => {
 
   useEffect(() => {
     if (!isInitialized) return;
-    const socketInstance = io('https://viewvista.onrender.com', {
+    const socketInstance = io('http://localhost:3001', {
       transports: ['websocket'],
       cors: {
-        origin: 'https://viewvista.onrender.com',
+        origin: 'http://localhost:3000',
       },
     });
     socketInstance.on("connect", () => {
@@ -28,13 +28,13 @@ const Viewer = () => {
     });
 
     setSocket(socketInstance);
-
+ 
     peer.current = new Peer(undefined, {
-      path: "/peerjs",  // Ensure this path is correct
-      host: 'viewvista.onrender.com',
-      port: process.env.NODE_ENV === 'production' ? '443' : '9001',
-      secure: true // Set to true if using HTTPS
-  });
+      path: "/peerjs",
+      host: "/",
+      port: "9001",
+    });
+
 
     peer.current.on("call", (call) => {
       call.answer();

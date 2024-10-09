@@ -9,23 +9,17 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Configure CORS to allow requests from https://viewvista.onrender.com
+// Configure CORS to allow requests from *
 app.use(
   cors({
-    origin: "https://viewvista.onrender.com", // Allow React app's origin
+    origin: "*", // Allow React app's origin
     methods: ["GET", "POST"],
   })
 );
 
 // Use the same server instance for PeerJS
-const peerServer = PeerServer({ 
-  server: server, // Use the existing HTTP server
-  path: "/peerjs",
-  cors: {
-    origin: "https://viewvista.onrender.com", // Allow requests from your frontend
-    methods: ['GET', 'POST']
-  }
-});
+const peerServer = PeerServer({ port: 9001, path: "/peerjs" });
+
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'client/build')));
