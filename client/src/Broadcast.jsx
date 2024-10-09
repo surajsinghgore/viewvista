@@ -68,76 +68,79 @@ const Broadcast = () => {
 
   useEffect(() => {
     if (!isInitialized) return;
-
-    socketRef.current =  io('http://localhost:3001', {
+  
+    // Update WebSocket URL to the deployed domain
+    socketRef.current = io('https://viewvista.onrender.com', {
       transports: ['websocket'],
       cors: {
-          origin: 'http://localhost:3000',
+        origin: 'https://viewvista.onrender.com',
       },
-  });
-
+    });
+  
     const socketInstance = socketRef.current;
-
+  
     socketInstance.on('connect', () => {
       console.log('Socket connected');
     });
-
+  
     setSocket(socketInstance);
-
+  
+    // Initialize PeerJS with secure connection and the correct host
     peer.current = new Peer(undefined, {
       path: "/peerjs",
-      host: "/",
-      port: "9001",
+      host: "viewvista.onrender.com",  // Use the deployed domain
+      secure: true,  // Use HTTPS
+      port: "443",   // Port 443 for HTTPS
     });
-
-
+  
+    // Request access to user media (video and audio)
     navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
     }).then(userStream => {
       setStream(userStream);
-
+  
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = userStream;
         localVideoRef.current.onloadedmetadata = () => {
           localVideoRef.current.play();
         };
       }
-
+  
       peer.current.on('call', call => {
         call.answer(userStream);
         call.on('stream', userVideoStream => {
           console.log("Received stream from user");
         });
       });
-
+  
       socketInstance.on('user-connected', ({ userId, userName }) => {
         connectToNewUser(userId, userStream);
       });
-
+  
       socketInstance.on('chat-message', ({ message, userName }) => {
         setChatMessages(prevMessages => [...prevMessages, { message, userName }]);
       });
-
+  
       socketInstance.on('viewer-count', count => {
         setViewerCount(count);
       });
-
+  
       socketInstance.on('stream-ended', () => {
         alert('The stream has ended.');
         stopMediaStream();
       });
-
+  
       socketInstance.on('price-per-minute', price => {
         setPricePerMinute(price);
       });
-
+  
       if (duration > 0) {
         const endTime = Date.now() + duration * 60000;
         timerRef.current = setInterval(() => {
           const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
           setRemainingTime(timeLeft);
-
+  
           if (timeLeft === 0) {
             endStream();
           }
@@ -146,20 +149,20 @@ const Broadcast = () => {
     }).catch(err => {
       console.error("Error accessing media devices:", err);
     });
-
+  
     peer.current.on('open', id => {
       if (socketInstance) {
-        socketInstance.emit('join-room', roomId, id, streamerName, visibility); // Send visibility info
+        socketInstance.emit('join-room', roomId, id, streamerName, visibility);
       }
     });
-
+  
     const connectToNewUser = (userId, userStream) => {
       const call = peer.current.call(userId, userStream);
       call.on('stream', userVideoStream => {
         console.log("Connected to user", userId);
       });
     };
-
+  
     return () => {
       if (socketInstance) {
         socketInstance.disconnect();
@@ -170,7 +173,6 @@ const Broadcast = () => {
       stopMediaStream();
     };
   }, [isInitialized, roomId, streamerName, duration, visibility]);
-
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (roomId && streamerName && duration > 0 && pricePerMinute > 0) {
