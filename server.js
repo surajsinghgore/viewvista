@@ -12,7 +12,7 @@ const io = socketIo(server);
 // CORS setup
 app.use(
   cors({
-    origin: "*", // For production, replace "*" with your frontend's domain.
+    origin: "https://viewvista.onrender.com", // Your specific domain
     methods: ["GET", "POST"],
   })
 );
@@ -40,6 +40,7 @@ io.on("connection", (socket) => {
   // Listen for users joining a room
   socket.on("join-room", (roomId, userId, userName) => {
     console.log(`${userName} joined room ${roomId}`);
+    
     if (roomId && userId && userName) {
       currentRoom = roomId;
       currentUserName = userName;
@@ -70,6 +71,18 @@ io.on("connection", (socket) => {
         const updatedViewerCount = io.sockets.adapter.rooms.get(currentRoom)?.size || 0;
         io.to(currentRoom).emit("viewer-count", updatedViewerCount);
       });
+    } else {
+      console.log("Invalid roomId, userId, or userName.");
+    }
+  });
+
+  // Listening for stream start requests
+  socket.on("start-stream", (roomId) => {
+    console.log(`Stream started in room: ${roomId}`);
+    if (roomId) {
+      socket.to(roomId).emit("stream-started");
+    } else {
+      console.log("Stream start failed: Invalid roomId");
     }
   });
 });

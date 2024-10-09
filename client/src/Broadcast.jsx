@@ -2,6 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import Peer from 'peerjs';
 import io from 'socket.io-client';
 
+const Chat = ({ chatMessages }) => {
+  return (
+    <div className="h-80 overflow-y-auto mb-4">
+      {chatMessages.map((msg, index) => (
+        <p key={index} className="mb-2">
+          <strong>{msg.userName}:</strong> {msg.message} <span className="text-gray-500 text-sm">({msg.timestamp})</span>
+        </p>
+      ))}
+    </div>
+  );
+};
+
 const Broadcast = () => {
   const [socket, setSocket] = useState(null);
   const [message, setMessage] = useState('');
@@ -122,7 +134,8 @@ const Broadcast = () => {
 
       // Handle incoming chat messages
       socketInstance.on('chat-message', ({ message, userName }) => {
-        setChatMessages(prevMessages => [...prevMessages, { message, userName }]);
+        const timestamp = new Date().toLocaleTimeString();
+        setChatMessages(prevMessages => [...prevMessages, { message, userName, timestamp }]);
       });
 
       // Update viewer count
@@ -150,6 +163,7 @@ const Broadcast = () => {
       }
     }).catch(err => {
       console.error("Error accessing media devices:", err);
+      alert("Error accessing media devices. Please check your camera/microphone permissions.");
     });
 
     // Emit the join-room event when the peer ID is ready
@@ -288,13 +302,7 @@ const Broadcast = () => {
               </div>
               <div className="w-1/3 bg-gray-100 p-4 border-l">
                 <h2 className="text-xl font-semibold mb-2">Chat</h2>
-                <div className="h-80 overflow-y-auto mb-4">
-                  {chatMessages.map((msg, index) => (
-                    <p key={index} className="mb-2">
-                      <strong>{msg.userName}:</strong> {msg.message}
-                    </p>
-                  ))}
-                </div>
+                <Chat chatMessages={chatMessages} />
                 <input
                   type="text"
                   value={message}

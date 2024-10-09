@@ -25,7 +25,7 @@ const Viewer = () => {
         origin: 'https://viewvista.onrender.com',
       },
     });
-    
+
     socketInstance.on("connect", () => {
       console.log("Socket connected");
     });
@@ -41,6 +41,7 @@ const Viewer = () => {
 
     // Listen for incoming calls
     peer.current.on("call", (call) => {
+      console.log("Incoming call...");
       call.answer(); // Answer the call
       call.on("stream", (userVideoStream) => {
         if (remoteVideoRef.current) {
@@ -77,7 +78,9 @@ const Viewer = () => {
 
     // Emit join-room event when the peer connection is established
     peer.current.on("open", (id) => {
+      console.log(`Peer connection established with ID: ${id}`);
       socketInstance.emit("join-room", roomId, id, viewerName);
+      socketInstance.emit("start-stream", roomId); // Emit start stream
     });
 
     return () => {
@@ -156,7 +159,7 @@ const Viewer = () => {
                 <h2 className="text-xl font-semibold">Room ID: {roomId}</h2>
                 <h2 className="text-xl font-semibold">Time Remaining: {formatTime(remainingTime)}</h2>
                 <h2 className="text-xl font-semibold">Price per Minute: ${pricePerMinute.toFixed(2)}</h2>
-                <video ref={remoteVideoRef} autoPlay playsInline className="w-[100vw] border rounded-md h-[400px]"></video>
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-full border rounded-md h-[400px]"></video>
               </div>
               <div className="w-1/3 bg-gray-100 p-4 border-l">
                 <h2 className="text-xl font-semibold mb-2">Chat</h2>
