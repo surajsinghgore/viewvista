@@ -37,6 +37,7 @@ io.on("connection", (socket) => {
   let currentUserName = "";
 
   socket.on("join-room", (roomId, userId, userName) => {
+    console.log("user joined");
     if (roomId && userId && userName) {
       currentRoom = roomId;
       currentUserName = userName;

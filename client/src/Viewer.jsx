@@ -37,7 +37,7 @@ const Viewer = () => {
       path: "/peerjs",
       host: "viewvista.onrender.com",  // Use the deployed domain
       secure: true,  // Use HTTPS
-      port: "443",   // Use port 443 for HTTPS
+      port: 443,   // Use port 443 for HTTPS
     });
 
     peer.current.on("call", (call) => {
